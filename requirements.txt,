@@ -1,0 +1,9 @@
+streamlit==1.37.0          # web UI
+chromadb==0.5.5            # vector store
+sentence-transformers==3.0.1 # local embeddings
+pypdf==4.3.1               # read PDFs
+beautifulsoup4==4.12.3     # strip text from HTML
+requests==2.32.3           # fetch URLs
+openai==1.40.0             # talk to OpenAI API
+python-dotenv==1.0.1       # load .env secrets
+tiktoken==0.7.0            # tokenize (good for prompt length mgmt)
