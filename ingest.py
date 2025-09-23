@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 from pypdf import PdfReader
 import chromadb
 from chromadb.utils import embedding_functions
+import json
+import io
 
 PERSIST_DIR = "storage"
 EMBED = embedding_functions.SentenceTransformerEmbeddingFunction(
@@ -36,7 +38,7 @@ def chunk_text(text: str, chunk_chars: int = 1200, overlap_chars: int = 200) -> 
     if (not text or not text.strip()):
         return []
     elif(len(text) <= chunk_chars):
-        text = text.strip()
+        return text.strip()
 
     #Create vars needed for segmentation
     chunks: list[str] = []
@@ -90,11 +92,57 @@ def load_pdf(file_obj) -> str:
         raise ValueError(f"PDF {file} does not exist")
     except Exception as e:
         raise ValueError(f"Could not read PDF: {e}")
+    finally:
+        file.close()
     
 
     #Put page text into one string, each page is sepperated by \n
     return "\n".join(pdf_text)
 
+def load_url(url: str) -> str:
+    """
+    Fetch a URL and return its visible text content.
+
+    This function downloads the web page at the given URL and extracts
+    all visible text using BeautifulSoup. The text blocks are joined
+    with single spaces to preserve readability. No further cleaning or
+    chunking is done here — callers are responsible for that.
+
+    Parameters:
+        url (str): The web address to fetch.
+
+    Returns:
+        str: The raw visible text content from the web page, or an empty
+             string if the request fails.
+
+    Raises:
+        ValueError: If the request fails due to a network error or
+                    unreachable URL.
+    """
+
+    try:
+        #Check what kind of url was given and grab text accordingly
+        response = requests.get(url, timeout=20)
+        response.raise_for_status()
+        content_type = response.headers.get("Content-Type", "").lower()
+        
+        match content_type:
+            case content_type if content_type.partition(";")[0].strip() == "application/pdf" or url.lower().endswith(".pdf"):
+                pdf_bytes = io.BytesIO(response.content)
+                return load_pdf(pdf_bytes)
+            case content_type if "html" in content_type:
+                soup = BeautifulSoup(response.text, "html.parser")
+                return soup.get_text(" ")
+            case content_type if "json" in content_type:
+                return json.dumps(response.json(), indent=2)
+            case content_type if "text" in content_type:
+                return response.text
+            case _:
+                return ""
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Failed to load URL: {url}") from e
+        
+            
         
 
 
