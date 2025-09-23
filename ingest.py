@@ -7,7 +7,8 @@ import chromadb
 from chromadb.utils import embedding_functions
 import json
 import io
-from embeddings import EMBED
+import hashlib
+import time
 from chromadb.api.models import Collection
 
 PERSIST_DIR = "./storage"
@@ -173,5 +174,65 @@ def build_or_get_collection(name: str = "docs") -> Collection:
 
     client = chromadb.PersistentClient(path=PERSIST_DIR)
     return client.get_or_create_collection(name=name, embedding_function=EMBED)
+
+def ingest_pdfs(files, col_name="docs") -> int:
+    """
+    Ingest one or more PDF files into a persistent Chroma collection.
+
+    Purpose:
+        Extracts text from PDF files, cleans and chunks the content, 
+        and stores the resulting text chunks in a Chroma collection 
+        along with metadata and unique IDs.
+
+    Args:
+        files (Iterable): A sequence of PDF file-like objects or paths 
+            to PDF files. Each must be readable by load_pdf. If a file 
+            object has a .name attribute, it will be used as the base 
+            name; otherwise "upload.pdf" is used as a fallback.
+        col_name (str, optional): Name of the Chroma collection where 
+            chunks will be stored. Defaults to "docs".
+
+    Returns:
+        int: The total number of text chunks (documents) added to the 
+        collection.
+    
+    Notes:
+        IDs are generated in the format "<base_name>-<chunk_index>" 
+        and must be unique within the collection. Re-ingesting the 
+        same file with the same IDs will raise an error. During 
+        development, either delete the storage/ folder between runs 
+        or adjust the ID scheme (e.g., add a hash or timestamp).
+    """
+    #Collection to store pdf files and total number of documents
+    collection = build_or_get_collection(col_name)
+    total_docs = 0
+
+    #Grab all pdf files and convert them to add to database
+    for file_obj in files:
+        #Create the lists needed to add pdfs to database
+        documents: list[str] = []
+        metadatas: list[dict] = []
+        ids: list[str] = []
+        if isinstance(file_obj, (str, bytes, Path)):
+            base_name = Path(file_obj).name
+        else:
+            base_name = Path(getattr(file_obj, "name", "upload.pdf")).name
+        
+        raw_text = load_pdf(file_obj)
+        cleaned_text = clean_text(raw_text)
+        if not cleaned_text:
+            continue
+        text_parts = chunk_text(cleaned_text, chunk_chars=1200, overlap_chars=200)
+
+        for i, text_part in enumerate(text_parts) :
+            documents.append(text_part)
+            metadatas.append({"source": base_name, "type": "pdf", "chunk": i})
+            ids.append(f"{base_name}-{i}-{int(time.time())%100000}")
+        
+        if documents:
+            collection.add(documents=documents, metadatas=metadatas, ids=ids)
+            total_docs += len(documents)
+    
+    return total_docs
 
 
