@@ -7,8 +7,10 @@ import chromadb
 from chromadb.utils import embedding_functions
 import json
 import io
+from embeddings import EMBED
+from chromadb.api.models import Collection
 
-PERSIST_DIR = "storage"
+PERSIST_DIR = "./storage"
 EMBED = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name = "all-MiniLM-L6-v2"
 )
@@ -150,5 +152,26 @@ def load_url(url: str) -> str:
     except requests.exceptions.RequestException as e:
         raise ValueError(f"Failed to load URL: {url}") from e          
         
+def build_or_get_collection(name: str = "docs") -> Collection:
+    """
+    Open or create a persistent Chroma collection using the global embedding function.
+
+    Purpose:
+        Ensures that a Chroma collection with the given name exists and is ready 
+        for storing/retrieving vector embeddings. If the collection does not 
+        already exist, it will be created. If it does exist, it will be opened 
+        and reused.
+
+    Args:
+        name (str, optional): Name of the collection to open or create.
+            Defaults to "docs".
+
+    Returns:
+        chromadb.api.models.Collection.Collection: A persistent Chroma collection 
+        object backed by the configured embedding function (EMBED).
+    """
+
+    client = chromadb.PersistentClient(path=PERSIST_DIR)
+    return client.get_or_create_collection(name=name, embedding_function=EMBED)
 
 
