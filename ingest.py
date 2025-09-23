@@ -13,6 +13,14 @@ EMBED = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name = "all-MiniLM-L6-v2"
 )
 
+def clean_text(text: str | None) -> str:
+    if (not text):
+        return ""
+    cleaned_text = text.replace("\u00A0", " ")
+    cleaned_text = re.sub(r"\s+", " ", cleaned_text)
+    return cleaned_text
+
+
 def chunk_text(text: str, chunk_chars: int = 1200, overlap_chars: int = 200) -> list[str]:
     """
     Split a string into overlapping character-based chunks.
@@ -140,9 +148,7 @@ def load_url(url: str) -> str:
             case _:
                 return ""
     except requests.exceptions.RequestException as e:
-        raise ValueError(f"Failed to load URL: {url}") from e
-        
-            
+        raise ValueError(f"Failed to load URL: {url}") from e          
         
 
 
