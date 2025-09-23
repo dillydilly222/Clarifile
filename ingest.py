@@ -213,7 +213,7 @@ def ingest_pdfs(files, col_name="docs") -> int:
         documents: list[str] = []
         metadatas: list[dict] = []
         ids: list[str] = []
-        if isinstance(file_obj, (str, bytes, Path)):
+        if isinstance(file_obj, (str, Path)):
             base_name = Path(file_obj).name
         else:
             base_name = Path(getattr(file_obj, "name", "upload.pdf")).name
@@ -235,4 +235,69 @@ def ingest_pdfs(files, col_name="docs") -> int:
     
     return total_docs
 
+def ingest_urls(urls, col_name="docs") -> int:
+    """
+    Ingest one or more URLs into a persistent Chroma collection.
+
+    Purpose:
+        Downloads and extracts visible text from URLs, cleans and chunks 
+        the content, and stores the resulting text chunks in a Chroma 
+        collection along with metadata and unique IDs.
+
+    Args:
+        urls (Iterable[str]): A sequence of URL strings to fetch and ingest.
+            Each URL should point to an HTML page or other text-readable 
+            resource. If the URL cannot be retrieved or parsed, it should 
+            be skipped or logged as an error.
+        col_name (str, optional): Name of the Chroma collection where 
+            chunks will be stored. Defaults to "docs".
+
+    Returns:
+        int: The total number of text chunks (documents) added to the 
+        collection.
+    
+    Notes:
+        IDs are generated in the format "<base_name>-<chunk_index>", 
+        where <base_name> is derived from the URL (e.g., the domain or 
+        path). IDs must be unique within the collection. Re-ingesting 
+        the same URL with the same IDs will raise an error. During 
+        development, either delete the storage/ folder between runs 
+        or adjust the ID scheme (e.g., add a hash or timestamp).
+    """
+
+    collection = build_or_get_collection(col_name)
+    total_docs = 0
+
+    for url_idx, url in enumerate(urls):
+        documents: list[str] = []
+        metadatas: list[dict] = []
+        ids: list[str] = []
+
+        source_url = str(url)
+
+        try:
+            raw_text = load_url(source_url)
+        except ValueError:
+            continue
+
+        cleaned_text = clean_text(raw_text)
+        if not cleaned_text:
+            continue
+
+        text_parts = chunk_text(cleaned_text, chunk_chars=1200, overlap_chars=200)
+
+        #Create a readable shorter id for each url
+        short = source_url.replace("https://", "").replace("http://", "").strip("/")
+        short = short.replace("/", "-")[:80]
+
+        for i, text_part in enumerate(text_parts):
+            documents.append(text_part)
+            metadatas.append({"source": source_url, "type": "url", "chunk": i})
+            ids.append(f"{short}-{url_idx}-{i}")
+
+        if documents:
+            collection.add(documents=documents, metadatas=metadatas, ids=ids)
+            total_docs += len(documents)
+
+    return total_docs
 
