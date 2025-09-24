@@ -49,7 +49,7 @@ def chunk_text(text: str, chunk_chars: int = 1200, overlap_chars: int = 200) -> 
     if (not text or not text.strip()):
         return []
     elif(len(text) <= chunk_chars):
-        return text.strip()
+        return [text.strip()]
 
     #Create vars needed for segmentation
     chunks: list[str] = []
