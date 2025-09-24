@@ -1,6 +1,11 @@
 from ingest import build_or_get_collection
 
-def retrieve_chunks(query, k=5, col_name="docs"):
+DEFAULT_SYSTEM = (
+    "You must answer strictly from the provided context. "
+    "If the answer is not in the context, say you don't know."
+)
+
+def retrieve_chunks(query, k=5, col_name="docs") -> list[dict]:
     """
     Retrieve the top-k most relevant documents from a vector collection.
 
@@ -70,3 +75,65 @@ def retrieve_chunks(query, k=5, col_name="docs"):
     records.sort(key=lambda r: r["distance"])  # or: reverse sort by r["score"]
     return records
 
+def build_context(chunks: list[dict], max_chars: int = 6000) -> tuple[str, list[dict]]:
+    """
+    Build a consolidated context string from retrieved chunks.
+
+    This function concatenates the text of retrieved chunks into a single context
+    block, respecting a character budget, and returns both the context and the
+    subset of chunks that were included (useful for citations).
+
+    Args:
+        chunks (list[dict]): The retrieved result records produced by 'retrieve_chunks'.
+        max_chars (int, optional): Maximum number of characters allowed in the
+            final context string. Defaults to 6000.
+
+    Raises:
+        ValueError: If `chunks` is None.
+
+    Returns:
+        tuple[str, list[dict]]: A tuple containing:
+            context (str): The concatenated context text assembled from chunks.
+            used_chunks (list[dict]): The subset of input chunks that fit within
+                the 'max_chars' limit, preserving original order.
+    """
+    #Check if chunks has something and max_chars is not less than zero
+    if (chunks is None):
+        raise ValueError("chunks is None")
+    if (max_chars < 0):
+        max_chars = 0
+
+    #Set up needed lists and sets
+    used_chunks: list[dict] = []
+    chunk_parts: list[str] = []
+    total = 0
+    seen_chunks: set[tuple[str | None, str | None, int | None]] = set()
+
+    #Loop through the chunks and grab needed info to piece back together for prompt
+    for chunk in chunks:
+        #Make sure its not a duplicate
+        if not isinstance(chunk, dict):
+            continue
+
+        #Grab keys needed and make sure they are not duplicates
+        key = (chunk.get("id"), chunk.get("source"), chunk.get("chunk"))
+        if (key in seen_chunks):
+            continue
+        seen_chunks.add(key)
+
+        #Grab the used doc and make sure it is not empty
+        doc = (chunk.get("document") or "").strip()
+        if (not doc):
+            continue
+        
+        #Grab needed info and put it all together
+        source = chunk.get("source")
+        chunk_index = chunk.get("chunk")
+        block = (f"Source: {source} (chunk {chunk_index})\n{doc}\n\n")
+        if (total + len(block) > max_chars):
+            break
+        chunk_parts.append(block)
+        used_chunks.append(chunk)
+        total += len(block)
+    return "".join(chunk_parts), used_chunks
+    
