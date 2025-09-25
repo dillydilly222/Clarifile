@@ -201,6 +201,7 @@ def call_llm(prompt: str) -> str:
         str: The model-generated answer text (without appended citations).
     """
     try:
+        #Grab the response from the LLM call and get just the answer portion
         response = requests.post(
             "http://localhost:11434/api/generate",
             json={"model": "llama3.1:8b", "prompt": prompt, "stream": False},
@@ -209,14 +210,80 @@ def call_llm(prompt: str) -> str:
         response.raise_for_status()
         data = response.json()
         text = (data.get("response") or "").strip()
+        #Make sure an answer was given
         if not text:
             raise RuntimeError("empty response from Llama 3.1:8b")
         return text
     except Exception as e:
         raise RuntimeError(f"Llama call failed: {e}")
     
+def label_sources(chunks: list[dict]) -> dict[str, int]:
+    """
+    Assign numeric citation labels to unique sources.
 
+    This function scans the subset of chunks actually included in the context
+    and maps each unique 'source' string to a stable integer label starting at 1.
 
+    Args:
+        used_chunks (list[dict]): The chunk records that were included in the context.
+
+    Raises:
+        ValueError: If 'used_chunks' is None.
+
+    Returns:
+        dict[str, int]: A mapping from source string to numeric label, e.g.:
+            {"https://example.com": 1, "testPDF1p.pdf": 2}
+    """
+    #See if chunks were given for source labeling
+    if chunks is None:
+        raise ValueError("'used_chunks' is None")
+    #Create label dict and add the source for each chunk to the labels
+    labels: dict[str,int] = {}
+    label_num = 1
+    for chunk in chunks:
+        source = chunk.get("source")
+        if (source not in labels):
+            labels[source] = label_num
+            label_num += 1
+    return labels
+
+def render_answer_with_citations(answer_text: str, used_chunks: list[dict]) -> str:
+    """
+    Append a Sources section with numeric citations to an answer.
+
+    This function adds a compact 'Sources' list to the end of the model's answer,
+    enumerating each unique source that contributed context.
+
+    Args:
+        answer_text (str): The raw answer text produced by the language model.
+        used_chunks (list[dict]): The chunk records used to build the context.
+
+    Raises:
+        ValueError: If 'answer_text' is None or 'used_chunks' is None.
+
+    Returns:
+        str: The final answer string with a trailing 'Sources:' section, e.g.:
+            Sources:
+            [1] https://example.com (chunk 0)
+            [2] data/testPDF1p.pdf (chunk 3)
+    """
+    #Make sure an answer was provided before adding citations
+    if answer_text is None or used_chunks is None:
+        raise ValueError("'answer_text' or 'used_chunks' is None")
+    #Create dict, list and set for matching the text to the right source
+    mapping_sources = label_sources(used_chunks)
+    lines = [answer_text.rstrip(), "", "Sources:"]
+    seen = set()
+
+    #Match text to the right source
+    for chunk in used_chunks:
+        source = chunk.get("source")
+        if (source in seen):
+            continue
+        seen.add(source)
+        lines.append(f"[{mapping_sources[source]}] {source} (chunk {chunk.get('chunk')})")
+    return "\n".join(lines)
+    
 
 
 
