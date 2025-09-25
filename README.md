@@ -1,26 +1,45 @@
 # Clarifile
 
-Clarifile is a compact RAG (Retrieve–Augment–Generate) mini-app. It ingests PDFs and web pages, cleans and chunks the text, and builds a **persistent** vector index (Chroma) for fast, citation-friendly retrieval. The codebase is small and interview-ready, showcasing practical AI integration (parsing, embeddings, vector search).
+Clarifile is a lightweight Retrieval-Augmented Generation (RAG) system using [ChromaDB](https://www.trychroma.com/), [SentenceTransformers](https://www.sbert.net/), and a local [Ollama](https://ollama.ai/) Llama 3.1 model. It ingests PDFs and URLs, retrieves relevant chunks, and generates context-grounded answers with citations.
 
-## Prerequisites
-- Python **3.10+**
-- macOS, Linux, or Windows
-- (Optional) An OpenAI API key for the later “generate” step
+## Features
+- PDF & URL ingestion with text cleaning and chunking  
+- Persistent vector storage via ChromaDB  
+- Top-k semantic search with scores  
+- Context construction and deduplication  
+- LLM query with local `llama3.1:8b`  
+- Automatic source citations  
+
+## Structure
+├── ingest.py # Ingest PDFs/URLs
+├── retriever.py # Retrieval + QA flow
+├── data/
+│ ├── testPDF1p.pdf
+│ └── testPDF3p.pdf
+
+##Requires
+Ollama with llama3.1:8b
 
 ## Installation
-
-```bash
-# 1) Clone and enter the repo
-git clone <YOUR_FORK_OR_REPO_URL> clarifile
-cd clarifile
-
-# 2) Create and activate a virtual environment
-python -m venv .venv
-# macOS/Linux
-source .venv/bin/activate
-# Windows (PowerShell)
-.venv\Scripts\activate
-
-# 3) Upgrade pip and install dependencies
-pip install --upgrade pip
+'''bash
 pip install -r requirements.txt
+
+## Usage
+'''python
+from ingest import ingest_pdfs, ingest_urls
+from retriever import answer
+
+ingest_pdfs(["data/testPDF1p.pdf", "data/testPDF3p.pdf"])
+ingest_urls([
+    "https://www.example.com",
+    "https://jsonplaceholder.typicode.com/todos/1"
+])
+
+print(answer("What does the example site contain?"))
+
+## Notices
+
+**Built with Llama 3.1**
+
+Llama 3.1 is licensed under the Llama 3.1 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.  
+See the [Llama 3.1 Community License](https://llama.meta.com/llama-downloads) and [Acceptable Use Policy](https://llama.meta.com/llama3_1/use-policy) for more information.
