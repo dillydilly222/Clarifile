@@ -9,7 +9,6 @@ DEFAULT_SYSTEM = (
     "You must answer strictly from the provided context. "
     "If the answer is not in the context, say you don't know."
 )
-MODEL_TYPE = "You are a helpful RAG assistant"
 
 def retrieve_chunks(query, k=5, col_name="docs") -> list[dict]:
     """
@@ -284,7 +283,59 @@ def render_answer_with_citations(answer_text: str, used_chunks: list[dict]) -> s
         lines.append(f"[{mapping_sources[source]}] {source} (chunk {chunk.get('chunk')})")
     return "\n".join(lines)
     
+def answer(query: str, *, k: int = 5, col_name: str = "docs", max_context_chars: int = 6000, system_msg: str = DEFAULT_SYSTEM, with_citations: bool = True,) -> dict:
+    """
+    Generate an answer by retrieving context and querying a language model.
 
+    This function orchestrates a complete RAG flow: it retrieves the most relevant
+    chunks, builds a context string, constructs a prompt, calls the language model,
+    and optionally appends a Sources section with citations.
 
+    Args:
+        query (str): The user's question to be answered.
+        k (int, optional): The number of top chunks to retrieve. Defaults to 5.
+        col_name (str, optional): The name of the vector collection to query.
+            Defaults to "docs".
+        max_context_chars (int, optional): Maximum character budget for the context.
+            Defaults to 6000.
+        system_msg (str, optional): System instruction that governs answer policy.
+            Defaults to 'DEFAULT_SYSTEM'.
+        with_citations (bool, optional): Whether to append a 'Sources' section
+            listing contributing documents. Defaults to True.
 
+    Raises:
+        ValueError: If 'query' is None or empty.
+        RuntimeError: If the model call fails or produces no answer.
 
+    Returns:
+        dict: A dictionary containing:
+            answer (str): The final answer string (with citations if enabled).
+            prompt (str): The exact prompt used for the model call.
+            sources (list[dict]): A compact list of source metadata for the
+                chunks that were included in the context, where each item has:
+                source (str | None): The document or URL source.
+                chunk (int | None): The chunk index within that source.
+                score (float): Normalized similarity score for the chunk.
+                id (str): The unique identifier of the chunk in the store.
+    """
+    #Check that a query was given and is not empty
+    if not query or not str(query).strip():
+        raise ValueError("query is empty")
+
+    #Grab the chunks, context, and create the prompt for the llm call
+    chunks = retrieve_chunks(query, k=k, col_name=col_name)
+    context, used = build_context(chunks, max_chars=max_context_chars)
+    prompt = make_prompt(query, context, system_msg=system_msg)
+
+    #Make a call to the llm with the made prompt and make sure an answer was given
+    raw = call_llm(prompt)
+    if not raw or not str(raw).strip():
+        raise RuntimeError("Model returned no output")
+
+    #Make the answer more readable for the end user, adding proper citations
+    final = render_answer_with_citations(raw, used) if with_citations else str(raw).strip()
+    sources = [
+        {"source": r.get("source"), "chunk": r.get("chunk"), "score": r.get("score"), "id": r.get("id")}
+        for r in used
+    ]
+    return {"answer": final, "prompt": prompt, "sources": sources}
