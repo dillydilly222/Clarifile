@@ -1,9 +1,15 @@
 from ingest import build_or_get_collection
+import os
+from dotenv import load_dotenv
+from openai import OpenAI
+import requests
+
 
 DEFAULT_SYSTEM = (
     "You must answer strictly from the provided context. "
     "If the answer is not in the context, say you don't know."
 )
+MODEL_TYPE = "You are a helpful RAG assistant"
 
 def retrieve_chunks(query, k=5, col_name="docs") -> list[dict]:
     """
@@ -137,7 +143,6 @@ def build_context(chunks: list[dict], max_chars: int = 6000) -> tuple[str, list[
         total += len(block)
     return "".join(chunk_parts), used_chunks
     
-
 def make_prompt(query: str, context: str, system_msg: str = DEFAULT_SYSTEM) -> str:
     """
     Construct a prompt for the language model using the query and context.
@@ -177,5 +182,42 @@ def make_prompt(query: str, context: str, system_msg: str = DEFAULT_SYSTEM) -> s
         sys = DEFAULT_SYSTEM
     
     return f"{sys}\n\nContext:\n{c}\n\nQuestion: {q}\nAnswer:"
+
+def call_llm(prompt: str) -> str:
+    """
+    Execute a language model call to produce an answer from a prompt.
+
+    This function should invoke the Llama3 model,
+    passing the constructed prompt and returning the resulting answer text.
+
+    Args:
+        prompt (str): The prompt string created by 'make_prompt'.
+
+    Raises:
+        NotImplementedError: If the method is not yet implemented.
+        RuntimeError: If the underlying model call fails or returns no output.
+
+    Returns:
+        str: The model-generated answer text (without appended citations).
+    """
+    try:
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={"model": "llama3.1:8b", "prompt": prompt, "stream": False},
+            timeout=300  # 5 min timeout for long generations
+        )
+        response.raise_for_status()
+        data = response.json()
+        text = (data.get("response") or "").strip()
+        if not text:
+            raise RuntimeError("empty response from Llama 3.1:8b")
+        return text
+    except Exception as e:
+        raise RuntimeError(f"Llama call failed: {e}")
+    
+
+
+
+
 
 
