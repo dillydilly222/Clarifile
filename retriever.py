@@ -137,3 +137,45 @@ def build_context(chunks: list[dict], max_chars: int = 6000) -> tuple[str, list[
         total += len(block)
     return "".join(chunk_parts), used_chunks
     
+
+def make_prompt(query: str, context: str, system_msg: str = DEFAULT_SYSTEM) -> str:
+    """
+    Construct a prompt for the language model using the query and context.
+
+    This function formats a prompt that instructs the model to answer strictly
+    from the provided context and responds with the user's question.
+
+    Args:
+        query (str): The user's natural language question.
+        context (str): The consolidated context text built from retrieved chunks.
+        system_msg (str, optional): System-level instruction that sets answer policy.
+            Defaults to 'DEFAULT_SYSTEM'.
+
+    Raises:
+        ValueError: If 'query' or 'context' is None or empty.
+
+    Returns:
+        str: A single prompt string combining the system instruction, context,
+            and the user's question, ready to be sent to an LLM.
+    """
+    #Make sure that there is a query, context
+    if(not query):
+        raise ValueError("No query found")
+    if(not context):
+        raise ValueError("No context found")
+
+    #Strip qury and context, and make sure they are still not empty
+    q = query.strip()
+    c = context.strip()
+    if(not q):
+        raise ValueError("Query must be non-empty")
+    if(not c):
+        raise ValueError("Context must be non-empty")
+    #See if custom system_msg was added if not result to default
+    sys = (system_msg or "").strip()
+    if not sys:
+        sys = DEFAULT_SYSTEM
+    
+    return f"{sys}\n\nContext:\n{c}\n\nQuestion: {q}\nAnswer:"
+
+
