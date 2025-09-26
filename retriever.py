@@ -9,6 +9,10 @@ DEFAULT_SYSTEM = (
     "You must answer strictly from the provided context. "
     "If the answer is not in the context, say you don't know."
 )
+PERSONA = (
+    "using the provided context answer the question to the best of your ability, if you can not answer with the provided context, "
+    "then answer with your own knowledge instead, if you still can not, then reply with I do not know"
+)
 
 def retrieve_chunks(query, k=5, col_name="docs") -> list[dict]:
     """
@@ -199,22 +203,45 @@ def call_llm(prompt: str) -> str:
     Returns:
         str: The model-generated answer text (without appended citations).
     """
+    #Grab groq api key and model name for streamlit app
+    groq_key = os.getenv("GROQ_API_KEY")
+    model_name = os.getenv("MODEL_NAME", "llama-3.1-8b-instant")
     try:
-        #Grab the response from the LLM call and get just the answer portion
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json={"model": "llama3.1:8b", "prompt": prompt, "stream": False},
-            timeout=300  # 5 min timeout for long generations
-        )
-        response.raise_for_status()
-        data = response.json()
-        text = (data.get("response") or "").strip()
-        #Make sure an answer was given
-        if not text:
-            raise RuntimeError("empty response from Llama 3.1:8b")
-        return text
+        #Using the streamlit demo
+        if groq_key:
+            headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
+            body = {
+                "model": model_name,
+                "messages": [
+                    {"role": "system", "content": PERSONA},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 512,
+                "top_p": 0.9,
+                "stream": False,
+            }
+            r = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                              headers=headers, json=body, timeout=60)
+            r.raise_for_status()
+            data = r.json()
+            return (data["choices"][0]["message"]["content"] or "").strip()
+        else:
+            #Grab the response from the local LLM call and get just the answer portion
+            response = requests.post(
+                "http://localhost:11434/api/generate",
+                json={"model": "llama3.1:8b", "prompt": f"{PERSONA}\nUser:{prompt}", "stream": False},
+                timeout=300  # 5 min timeout for long generations
+            )
+            response.raise_for_status()
+            data = response.json()
+            text = (data.get("response") or "").strip()
+            #Make sure an answer was given
+            if not text:
+                raise RuntimeError("empty response from Llama 3.1:8b")
+            return text
     except Exception as e:
-        raise RuntimeError(f"Llama call failed: {e}")
+        raise RuntimeError(f"LLM call failed: {e}")
     
 def label_sources(chunks: list[dict]) -> dict[str, int]:
     """
