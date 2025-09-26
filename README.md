@@ -11,11 +11,11 @@ Clarifile is a lightweight Retrieval-Augmented Generation (RAG) system using [Ch
 - Automatic source citations  
 
 ## Structure
-├── ingest.py # Ingest PDFs/URLs
-├── retriever.py # Retrieval + QA flow
-├── data/
-│ ├── testPDF1p.pdf
-│ └── testPDF3p.pdf
+- ingest.py # Ingest PDFs/URLs 
+- retriever.py # Retrieval + QA flow
+- data/
+--testPDF1p.pdf
+--testPDF3p.pdf
 
 ##Requires
 Ollama with llama3.1:8b
