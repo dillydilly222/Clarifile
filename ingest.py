@@ -23,7 +23,6 @@ def clean_text(text: str | None) -> str:
     cleaned_text = re.sub(r"\s+", " ", cleaned_text)
     return cleaned_text
 
-
 def chunk_text(text: str, chunk_chars: int = 1200, overlap_chars: int = 200) -> list[str]:
     """
     Split a string into overlapping character-based chunks.
@@ -300,4 +299,3 @@ def ingest_urls(urls, col_name="docs") -> int:
             total_docs += len(documents)
 
     return total_docs
-
