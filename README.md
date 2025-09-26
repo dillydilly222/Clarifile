@@ -19,6 +19,7 @@ Clarifile is a lightweight Retrieval-Augmented Generation (RAG) system using [Ch
 
 ##Requires
 Ollama with llama3.1:8b
+python version >= 3.13
 
 ## Installation
 '''bash
