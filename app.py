@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 import streamlit as st
 
-from ingest import ingest_pdfs, ingest_urls
 from retriever import answer
 
 st.set_page_config(page_title="Clarifile Demo")
@@ -10,6 +9,7 @@ st.set_page_config(page_title="Clarifile Demo")
 ROOT = Path(__file__).parent.resolve()
 DEMO_DIR = ROOT / "data" / "Demo"
 URLS_TXT = ROOT / "data" / "Demo" / "urls.txt"
+STORAGE_DIR = ROOT / "storage"
 
 def list_demo_pdfs() -> list[str]:
     return [str(p) for p in sorted(DEMO_DIR.glob("*.pdf"))]
@@ -30,52 +30,20 @@ def read_urls_txt() -> list[str]:
             seen.add(u)
     return deduped
 
-def build_kb_if_needed():
-    if st.session_state.get("kb_ready"):
-        return
-    ingested_files, ingested_urls, errors = [], [], []
-    try:
-        pdfs = list_demo_pdfs()
-        if pdfs:
-            ingest_pdfs(pdfs)
-            ingested_files = [Path(p).name for p in pdfs]
-    except Exception as e:
-        errors.append(f"PDF ingest error: {e}")
-    try:
-        urls = read_urls_txt()
-        if urls:
-            ingest_urls(urls)
-            ingested_urls = urls
-    except Exception as e:
-        errors.append(f"URL ingest error: {e}")
-    st.session_state.kb_ready = True
-    st.session_state.ingested_files = ingested_files
-    st.session_state.ingested_urls = ingested_urls
-    st.session_state.kb_errors = errors
-
-if "kb_ready" not in st.session_state:
-    st.session_state.kb_ready = False
-if "ingested_files" not in st.session_state:
-    st.session_state.ingested_files = []
-if "ingested_urls" not in st.session_state:
-    st.session_state.ingested_urls = []
-if "kb_errors" not in st.session_state:
-    st.session_state.kb_errors = []
-
-build_kb_if_needed()
-
 st.title("Clarifile Demo")
 
 st.subheader("Knowledge Base Summary")
-files = st.session_state.ingested_files
-urls = st.session_state.ingested_urls
-errs = st.session_state.kb_errors
+files = [Path(p).name for p in list_demo_pdfs()]
+urls = read_urls_txt()
+storage_exists = STORAGE_DIR.exists() and STORAGE_DIR.is_dir()
 
-left, right = st.columns(2)
-with left:
-    st.metric("Demo PDFs loaded", len(files))
-with right:
-    st.metric("URLs loaded from urls.txt", len(urls))
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Demo PDFs detected", len(files))
+with col2:
+    st.metric("URLs detected in urls.txt", len(urls))
+with col3:
+    st.metric("Storage folder present", int(storage_exists))
 
 if files:
     with st.expander("View PDF files"):
@@ -91,10 +59,8 @@ if urls:
 else:
     st.info("No URLs found in 'urls.txt' (or file missing).")
 
-if errs:
-    with st.expander("Ingestion Warnings / Errors"):
-        for e in errs:
-            st.warning(e)
+if not storage_exists:
+    st.error("Missing 'storage/' directory. Ensure the Chroma collection is prebuilt in ./storage before asking questions.")
 
 st.markdown("---")
 
@@ -104,6 +70,8 @@ q = st.text_area("Question", height=120, placeholder="Ask about the ingested PDF
 if st.button("Ask"):
     if not q.strip():
         st.warning("Please enter a question.")
+    elif not storage_exists:
+        st.error("No vector store found. Build the knowledge base into ./storage first.")
     else:
         with st.spinner("Retrieving and answering..."):
             try:
