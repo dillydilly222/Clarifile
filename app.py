@@ -9,7 +9,7 @@ st.set_page_config(page_title="Clarifile Demo")
 
 ROOT = Path(__file__).parent.resolve()
 DEMO_DIR = ROOT / "data" / "Demo"
-URLS_TXT = ROOT / "urls.txt"
+URLS_TXT = ROOT / "data" / "Demo" / "urls.txt"
 
 def list_demo_pdfs() -> list[str]:
     return [str(p) for p in sorted(DEMO_DIR.glob("*.pdf"))]
@@ -82,14 +82,14 @@ if files:
         for name in files:
             st.markdown(f"- `{name}`")
 else:
-    st.info("No PDFs found in `data/Demo/`.")
+    st.info("No PDFs found in 'data/Demo/'.")
 
 if urls:
     with st.expander("View URLs"):
         for u in urls:
             st.markdown(f"- {u}")
 else:
-    st.info("No URLs found in `urls.txt` (or file missing).")
+    st.info("No URLs found in 'urls.txt' (or file missing).")
 
 if errs:
     with st.expander("Ingestion Warnings / Errors"):
