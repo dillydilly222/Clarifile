@@ -10,8 +10,12 @@ DEFAULT_SYSTEM = (
     "If the answer is not in the context, say you don't know."
 )
 PERSONA = (
-    "using the provided context answer the question to the best of your ability, if you can not answer with the provided context, "
-    "then answer with your own knowledge instead, if you still can not, then reply with I do not know"
+    "You are an assistant who will answer user questions,"
+    "using the provided context try and answer the query to the best of your ability, "
+    "if you can not answer the query with the provided context, "
+    "then answer with your own personal knowledge instead,"
+    " ignoring the context provided (seeing as it has no corelation to the query),"
+    "if you still can not answer the query, then reply with I do not know"
 )
 
 def retrieve_chunks(query, k=5, col_name="docs") -> list[dict]:
