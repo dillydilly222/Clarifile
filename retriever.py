@@ -306,6 +306,10 @@ def render_answer_with_citations(answer_text: str, used_chunks: list[dict]) -> s
     lines = [answer_text.rstrip(), "", "Sources:"]
     seen = set()
 
+    #No sources were used
+    if not used_chunks:
+        return answer_text.strip()
+
     #Match text to the right source
     for chunk in used_chunks:
         source = chunk.get("source")
