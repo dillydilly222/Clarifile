@@ -14,7 +14,7 @@ PERSONA = (
     "using the provided context try and answer the query to the best of your ability, "
     "if you can not answer the query with the provided context, "
     "then answer with your own personal knowledge instead,"
-    " ignoring the context provided (seeing as it has no corelation to the query),"
+    "ignoring the context provided (seeing as it has no corelation to the query),"
     "if you still can not answer the query, then reply with I do not know"
 )
 
@@ -208,6 +208,7 @@ def call_llm(prompt: str) -> str:
         str: The model-generated answer text (without appended citations).
     """
     #Grab groq api key and model name for streamlit app
+    load_dotenv()
     groq_key = os.getenv("GROQ_API_KEY")
     model_name = os.getenv("MODEL_NAME", "llama-3.1-8b-instant")
     try:
@@ -356,7 +357,7 @@ def answer(query: str, *, k: int = 5, col_name: str = "docs", max_context_chars:
     #Grab the chunks, context, and create the prompt for the llm call
     chunks = retrieve_chunks(query, k=k, col_name=col_name)
     context, used = build_context(chunks, max_chars=max_context_chars)
-    prompt = make_prompt(query, context, system_msg=system_msg)
+    prompt = make_prompt(query, context, system_msg=PERSONA)
 
     #Make a call to the llm with the made prompt and make sure an answer was given
     raw = call_llm(prompt)
