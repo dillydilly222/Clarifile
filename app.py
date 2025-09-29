@@ -80,3 +80,4 @@ if st.button("Ask"):
             except Exception as e:
                 a = f"Error: {e}"
         st.text_area("Answer", value=a, height=360)
+st.image("Flow Diagram.png", caption="Clarifile Flow Diagram", use_column_width=True)
